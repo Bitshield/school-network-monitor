@@ -1,0 +1,195 @@
+<div class="discovery-container">
+  <!-- Header -->
+  <div class="discovery-header">
+    <h1>Network Discovery</h1>
+    <p class="subtitle">Scan your network to discover devices</p>
+  </div>
+  
+  <!-- Scan Configuration -->
+  <div class="scan-config-panel">
+    <h2>Scan Configuration</h2>
+    
+    <div class="scan-types">
+      <button 
+        class="scan-type-btn" 
+        [class.active]="activeScanType === 'network'"
+        (click)="activeScanType = 'network'">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+        </svg>
+        Network Scan
+      </button>
+      
+      <button 
+        class="scan-type-btn" 
+        [class.active]="activeScanType === 'arp'"
+        (click)="activeScanType = 'arp'">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+        </svg>
+        ARP Scan
+      </button>
+      
+      <button 
+        class="scan-type-btn" 
+        [class.active]="activeScanType === 'single'"
+        (click)="activeScanType = 'single'">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        Single Device
+      </button>
+    </div>
+    
+    <!-- Network/ARP Scan Config -->
+    <div class="scan-form" *ngIf="activeScanType === 'network' || activeScanType === 'arp'">
+      <div class="form-group">
+        <label>Network Range (CIDR)</label>
+        <input 
+          type="text" 
+          [(ngModel)]="networkRange" 
+          placeholder="e.g., 192.168.1.0/24"
+          class="form-input"
+        />
+        <span class="form-hint">Enter IP range in CIDR notation</span>
+      </div>
+      
+      <div class="form-group checkbox-group" *ngIf="activeScanType === 'network'">
+        <label>
+          <input type="checkbox" [(ngModel)]="saveResults" />
+          <span>Automatically add discovered devices to monitoring</span>
+        </label>
+      </div>
+      
+      <button 
+        class="btn btn-primary btn-scan" 
+        (click)="activeScanType === 'network' ? startNetworkScan() : startARPScan()"
+        [disabled]="isScanning">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        {{ isScanning ? 'Scanning...' : (activeScanType === 'network' ? 'Start Network Scan' : 'Start ARP Scan') }}
+      </button>
+    </div>
+    
+    <!-- Single Device Scan Config -->
+    <div class="scan-form" *ngIf="activeScanType === 'single'">
+      <div class="form-group">
+        <label>IP Address</label>
+        <input 
+          type="text" 
+          [(ngModel)]="singleDeviceIP" 
+          placeholder="e.g., 192.168.1.100"
+          class="form-input"
+        />
+      </div>
+      
+      <div class="form-group checkbox-group">
+        <label>
+          <input type="checkbox" [(ngModel)]="saveResults" />
+          <span>Add device to monitoring if found</span>
+        </label>
+      </div>
+      
+      <button 
+        class="btn btn-primary btn-scan" 
+        (click)="scanSingleDevice()"
+        [disabled]="isScanning">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        {{ isScanning ? 'Scanning...' : 'Scan Device' }}
+      </button>
+    </div>
+  </div>
+  
+  <!-- Scan Progress -->
+  <div class="scan-progress" *ngIf="isScanning">
+    <div class="progress-header">
+      <span>Scanning network...</span>
+      <span>{{ scanProgress | number:'1.0-0' }}%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" [style.width.%]="scanProgress"></div>
+    </div>
+  </div>
+  
+  <!-- Scan Results -->
+  <div class="scan-results" *ngIf="discoveredDevices.length > 0">
+    <div class="results-header">
+      <div class="results-stats">
+        <h2>Discovered Devices</h2>
+        <span class="stats-badge">{{ totalFound }} found</span>
+        <span class="stats-badge alive">{{ aliveCount }} alive</span>
+      </div>
+      
+      <div class="results-actions">
+        <button 
+          class="btn btn-secondary" 
+          *ngIf="selectedDevices.length > 0"
+          (click)="addSelectedToMonitoring()">
+          Add {{ selectedDevices.length }} to Monitoring
+        </button>
+        
+        <button class="btn btn-secondary" (click)="exportResults()">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export
+        </button>
+        
+        <button class="btn btn-text" (click)="selectAll()" *ngIf="selectedDevices.length < discoveredDevices.length">
+          Select All
+        </button>
+        
+        <button class="btn btn-text" (click)="deselectAll()" *ngIf="selectedDevices.length > 0">
+          Deselect All
+        </button>
+      </div>
+    </div>
+    
+    <!-- Results Table -->
+    <div class="results-table">
+      <table>
+        <thead>
+          <tr>
+            <th width="40"></th>
+            <th>Status</th>
+            <th>IP Address</th>
+            <th>MAC Address</th>
+            <th>Hostname</th>
+            <th>Manufacturer</th>
+            <th>Response Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let device of discoveredDevices" [class.selected]="selectedDevices.includes(device.ip)">
+            <td>
+              <input 
+                type="checkbox" 
+                [checked]="selectedDevices.includes(device.ip)"
+                (change)="toggleDeviceSelection(device.ip)"
+              />
+            </td>
+            <td>
+              <span class="status-indicator" [class]="getStatusClass(device.is_alive)">
+                {{ device.is_alive ? 'Alive' : 'Down' }}
+              </span>
+            </td>
+            <td class="mono">{{ device.ip }}</td>
+            <td class="mono">{{ device.mac || 'N/A' }}</td>
+            <td>{{ device.hostname || 'N/A' }}</td>
+            <td>{{ device.manufacturer || 'N/A' }}</td>
+            <td>{{ device.response_time_ms ? device.response_time_ms + ' ms' : 'N/A' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

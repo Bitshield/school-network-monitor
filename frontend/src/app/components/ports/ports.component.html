@@ -1,0 +1,98 @@
+<div class="ports-container">
+  <!-- Header -->
+  <div class="ports-header">
+    <h1>Network Ports</h1>
+  </div>
+  
+  <!-- Filters -->
+  <div class="filters-panel">
+    <select [(ngModel)]="selectedStatus" (change)="onFilterChange()" class="filter-select">
+      <option value="">All Statuses</option>
+      <option *ngFor="let status of portStatuses" [value]="status">{{ status }}</option>
+    </select>
+    
+    <select [(ngModel)]="selectedDeviceId" (change)="onFilterChange()" class="filter-select">
+      <option value="">All Devices</option>
+      <option *ngFor="let device of devices" [value]="device.id">{{ device.name }}</option>
+    </select>
+  </div>
+  
+  <!-- Loading -->
+  <div class="loading-state" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Loading ports...</p>
+  </div>
+  
+  <!-- Ports Grid -->
+  <div class="ports-grid" *ngIf="!isLoading">
+    <div class="port-card" *ngFor="let port of ports">
+      <div class="port-header">
+        <div class="port-info">
+          <span class="port-icon" [class]="getStatusClass(port.status)">●</span>
+          <div>
+            <div class="port-name">{{ port.port_name }}</div>
+            <div class="port-device">{{ getDeviceName(port.device_id) }}</div>
+          </div>
+        </div>
+        <span class="status-badge" [class]="getStatusClass(port.status)">{{ port.status }}</span>
+      </div>
+      
+      <div class="port-details">
+        <div class="detail-row">
+          <span class="label">Port Number:</span>
+          <span class="value">{{ port.port_number }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Type:</span>
+          <span class="value">{{ port.port_type || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Speed:</span>
+          <span class="value">{{ port.speed_mbps ? port.speed_mbps + ' Mbps' : 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">MAC:</span>
+          <span class="value mono">{{ port.mac_address || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">VLAN:</span>
+          <span class="value">{{ port.vlan_id || 'N/A' }}</span>
+        </div>
+      </div>
+      
+      <div class="port-stats">
+        <div class="stat-group">
+          <div class="stat-label">Received</div>
+          <div class="stat-value">{{ formatBytes(port.rx_bytes) }}</div>
+          <div class="stat-meta">{{ port.rx_packets | number }} packets</div>
+          <div class="stat-errors" *ngIf="port.rx_errors > 0">{{ port.rx_errors }} errors</div>
+        </div>
+        <div class="stat-group">
+          <div class="stat-label">Transmitted</div>
+          <div class="stat-value">{{ formatBytes(port.tx_bytes) }}</div>
+          <div class="stat-meta">{{ port.tx_packets | number }} packets</div>
+          <div class="stat-errors" *ngIf="port.tx_errors > 0">{{ port.tx_errors }} errors</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="empty-state" *ngIf="ports.length === 0">
+      <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+              d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+      <p>No ports found</p>
+    </div>
+  </div>
+  
+  <!-- Pagination -->
+  <div class="pagination" *ngIf="!isLoading && ports.length > 0">
+    <button class="btn" (click)="currentPage = currentPage - 1; loadPorts()" [disabled]="currentPage === 1">
+      Previous
+    </button>
+    <span class="page-info">Page {{ currentPage }}</span>
+    <button class="btn" (click)="currentPage = currentPage + 1; loadPorts()">
+      Next
+    </button>
+  </div>
+</div>

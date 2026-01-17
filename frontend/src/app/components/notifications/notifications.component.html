@@ -1,0 +1,35 @@
+<div class="notifications-container">
+  <div 
+    class="notification-toast" 
+    *ngFor="let notification of notifications"
+    [class]="'toast-' + notification.type">
+    
+    <div class="toast-icon">
+      <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          stroke-width="2" 
+          [attr.d]="getIconPath(notification.type)" />
+      </svg>
+    </div>
+    
+    <div class="toast-content">
+      <div class="toast-title" *ngIf="notification.title">{{ notification.title }}</div>
+      <div class="toast-message">{{ notification.message }}</div>
+      
+      <button 
+        class="toast-action" 
+        *ngIf="notification.action"
+        (click)="notification.action.callback()">
+        {{ notification.action.label }}
+      </button>
+    </div>
+    
+    <button class="toast-close" (click)="removeNotification(notification.id)">
+      <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+</div>

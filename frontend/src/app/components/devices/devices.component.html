@@ -1,0 +1,296 @@
+<div class="devices-container">
+  <!-- Header -->
+  <div class="devices-header">
+    <div class="header-left">
+      <h1>Devices</h1>
+      <span class="device-count">{{ totalDevices }} devices</span>
+    </div>
+    
+    <div class="header-right">
+      <button class="btn btn-secondary" (click)="exportDevices()">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Export CSV
+      </button>
+      
+      <button class="btn btn-primary" (click)="openAddModal()">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+        Add Device
+      </button>
+    </div>
+  </div>
+  
+  <!-- Filters -->
+  <div class="filters-panel">
+    <div class="search-box">
+      <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input 
+        type="text" 
+        placeholder="Search by name, IP, MAC, or hostname..."
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearchChange($event)"
+        class="search-input"
+      />
+    </div>
+    
+    <div class="filter-group">
+      <select [(ngModel)]="selectedStatus" (change)="onFilterChange()" class="filter-select">
+        <option value="">All Statuses</option>
+        <option *ngFor="let status of deviceStatuses" [value]="status">{{ status }}</option>
+      </select>
+      
+      <select [(ngModel)]="selectedType" (change)="onFilterChange()" class="filter-select">
+        <option value="">All Types</option>
+        <option *ngFor="let type of deviceTypes" [value]="type">{{ type }}</option>
+      </select>
+      
+      <button 
+        class="btn btn-text" 
+        (click)="clearFilters()" 
+        *ngIf="searchTerm || selectedStatus || selectedType">
+        Clear Filters
+      </button>
+    </div>
+  </div>
+  
+  <!-- Loading State -->
+  <div class="loading-state" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Loading devices...</p>
+  </div>
+  
+  <!-- Devices Table -->
+  <div class="devices-table-container" *ngIf="!isLoading">
+    <table class="devices-table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>IP Address</th>
+          <th>MAC Address</th>
+          <th>Location</th>
+          <th>Last Seen</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let device of filteredDevices" class="device-row">
+          <td>
+            <span class="status-badge" [class]="getStatusClass(device.status)">
+              {{ device.status }}
+            </span>
+          </td>
+          <td>
+            <div class="device-name">
+              <span class="device-icon">{{ getTypeIcon(device.device_type) }}</span>
+              <span class="name-text">{{ device.name }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="device-type">{{ device.device_type }}</span>
+          </td>
+          <td>
+            <span class="ip-address">{{ device.ip || 'N/A' }}</span>
+          </td>
+          <td>
+            <span class="mac-address">{{ device.mac || 'N/A' }}</span>
+          </td>
+          <td>
+            <span class="location">{{ device.location || '-' }}</span>
+          </td>
+          <td>
+            <span class="last-seen">{{ device.last_seen ? (device.last_seen | date:'short') : 'Never' }}</span>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button class="btn-action" (click)="viewDevice(device)" title="View Details">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
+              
+              <button class="btn-action" (click)="pingDevice(device)" title="Ping">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </button>
+              
+              <button class="btn-action danger" (click)="deleteDevice(device)" title="Delete">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+        
+        <tr *ngIf="filteredDevices.length === 0" class="empty-row">
+          <td colspan="8">
+            <div class="empty-state">
+              <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <p>No devices found</p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- Pagination -->
+  <div class="pagination" *ngIf="!isLoading && totalPages > 1">
+    <button class="btn btn-pagination" (click)="previousPage()" [disabled]="currentPage === 1">
+      <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      Previous
+    </button>
+    
+    <div class="page-numbers">
+      <button 
+        *ngFor="let page of visiblePages"
+        class="btn btn-page"
+        [class.active]="page === currentPage"
+        (click)="goToPage(page)">
+        {{ page }}
+      </button>
+    </div>
+    
+    <button class="btn btn-pagination" (click)="nextPage()" [disabled]="currentPage === totalPages">
+      Next
+      <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- Add Device Modal -->
+<div class="modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Add New Device</h2>
+      <button class="btn-close" (click)="closeAddModal()">×</button>
+    </div>
+    
+    <div class="modal-body">
+      <form class="device-form">
+        <div class="form-group">
+          <label for="device-name">Device Name *</label>
+          <input 
+            id="device-name"
+            type="text" 
+            [(ngModel)]="newDevice.name" 
+            name="name"
+            placeholder="e.g., Router-01"
+            class="form-input"
+            required
+          />
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="device-type">Device Type *</label>
+            <select id="device-type" [(ngModel)]="newDevice.device_type" name="type" class="form-input">
+              <option *ngFor="let type of deviceTypes" [value]="type">{{ type }}</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="device-ip">IP Address</label>
+            <input 
+              id="device-ip"
+              type="text" 
+              [(ngModel)]="newDevice.ip" 
+              name="ip"
+              placeholder="192.168.1.1"
+              class="form-input"
+            />
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="device-mac">MAC Address</label>
+            <input 
+              id="device-mac"
+              type="text" 
+              [(ngModel)]="newDevice.mac" 
+              name="mac"
+              placeholder="00:11:22:33:44:55"
+              class="form-input"
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="device-hostname">Hostname</label>
+            <input 
+              id="device-hostname"
+              type="text" 
+              [(ngModel)]="newDevice.hostname" 
+              name="hostname"
+              placeholder="device.local"
+              class="form-input"
+            />
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="device-location">Location</label>
+          <input 
+            id="device-location"
+            type="text" 
+            [(ngModel)]="newDevice.location" 
+            name="location"
+            placeholder="Building A, Floor 1"
+            class="form-input"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="device-description">Description</label>
+          <textarea 
+            id="device-description"
+            [(ngModel)]="newDevice.description" 
+            name="description"
+            placeholder="Additional notes..."
+            rows="3"
+            class="form-input"
+          ></textarea>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <label>
+            <input 
+              type="checkbox" 
+              [(ngModel)]="newDevice.is_monitored" 
+              name="monitored"
+            />
+            <span>Enable monitoring for this device</span>
+          </label>
+        </div>
+      </form>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeAddModal()">Cancel</button>
+      <button class="btn btn-primary" (click)="createDevice()">Add Device</button>
+    </div>
+  </div>
+</div>

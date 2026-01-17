@@ -1,0 +1,37 @@
+# Node modules
+node_modules/
+**/node_modules/
+
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+venv/
+**/venv/
+.env
+**/.env
+
+# Logs
+logs/
+**/logs/
+*.log
+
+# Database
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+**/.vscode/
+**/.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+**/dist/
+tmp/
+**/tmp/

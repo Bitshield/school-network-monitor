@@ -1,0 +1,304 @@
+.network-map-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  background: #f9fafb;
+}
+
+// ==================== TOOLBAR ====================
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  
+  &:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+  
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+.btn-icon {
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  .icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+  
+  &:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+  }
+}
+
+.btn-secondary {
+  background: #6b7280;
+  color: #ffffff;
+  border-color: #6b7280;
+  
+  &:hover {
+    background: #4b5563;
+    border-color: #4b5563;
+  }
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  background: #e5e7eb;
+  margin: 0 4px;
+}
+
+.layout-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #4b5563;
+  
+  select {
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    
+    &:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+  }
+}
+
+// ==================== GRAPH ====================
+
+.graph-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.cytoscape-container {
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+}
+
+// ==================== LOADING ====================
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  
+  p {
+    margin-top: 16px;
+    font-size: 14px;
+    color: #6b7280;
+  }
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// ==================== DETAILS PANEL ====================
+
+.details-panel {
+  position: absolute;
+  top: 60px;
+  right: 16px;
+  width: 320px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  
+  h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+  }
+}
+
+.btn-close {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.2s;
+  
+  &:hover {
+    color: #1f2937;
+  }
+}
+
+.panel-content {
+  padding: 16px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  .label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+  }
+  
+  .value {
+    font-size: 13px;
+    color: #1f2937;
+    font-weight: 500;
+  }
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  
+  &.status-up {
+    background: #d1fae5;
+    color: #065f46;
+  }
+  
+  &.status-down {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  
+  &.status-degraded {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  
+  &.status-unknown {
+    background: #f3f4f6;
+    color: #4b5563;
+  }
+}
+
+.actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  
+  button {
+    flex: 1;
+  }
+}
+
+// ==================== CYTOSCAPE ANIMATION ====================
+
+:host ::ng-deep {
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+}
+
+// ==================== RESPONSIVE ====================
+
+@media (max-width: 768px) {
+  .details-panel {
+    width: calc(100% - 32px);
+    right: 16px;
+    left: 16px;
+  }
+  
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

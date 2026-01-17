@@ -1,0 +1,498 @@
+<p>devices-detail works!</p>
+<div class="device-detail-container">
+  <!-- Loading State -->
+  <div class="loading-state" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Loading device details...</p>
+  </div>
+  
+  <!-- Device Details -->
+  <div class="device-content" *ngIf="!isLoading && device">
+    
+    <!-- Header -->
+    <div class="device-header">
+      <div class="header-left">
+        <button class="btn-back" (click)="router.navigate(['/devices'])">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Devices
+        </button>
+        
+        <div class="device-title">
+          <span class="device-icon">{{ deviceTypeIcon }}</span>
+          <h1>{{ device.name }}</h1>
+          <span class="status-badge" [class]="statusClass">{{ device.status }}</span>
+        </div>
+      </div>
+      
+      <div class="header-actions">
+        <button class="btn btn-secondary" (click)="pingDevice()" [disabled]="isPinging">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          {{ isPinging ? 'Pinging...' : 'Ping' }}
+        </button>
+        
+        <button class="btn btn-secondary" (click)="refreshData()">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Refresh
+        </button>
+        
+        <button class="btn btn-danger" (click)="deleteDevice()">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Delete
+        </button>
+      </div>
+    </div>
+    
+    <!-- Ping Result -->
+    <div class="ping-result" *ngIf="pingResult">
+      <div class="result-content" [class.success]="pingResult.is_alive" [class.error]="!pingResult.is_alive">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" *ngIf="pingResult.is_alive">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" *ngIf="!pingResult.is_alive">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>
+          {{ pingResult.is_alive ? 'Device is UP' : 'Device is DOWN' }}
+          <span *ngIf="pingResult.response_time_ms"> - {{ pingResult.response_time_ms }}ms</span>
+        </span>
+      </div>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="tabs">
+      <button 
+        class="tab" 
+        [class.active]="activeTab === 'overview'"
+        (click)="setActiveTab('overview')">
+        Overview
+      </button>
+      <button 
+        class="tab" 
+        [class.active]="activeTab === 'ports'"
+        (click)="setActiveTab('ports')">
+        Ports ({{ ports.length }})
+      </button>
+      <button 
+        class="tab" 
+        [class.active]="activeTab === 'links'"
+        (click)="setActiveTab('links')">
+        Links ({{ links.length }})
+      </button>
+      <button 
+        class="tab" 
+        [class.active]="activeTab === 'events'"
+        (click)="setActiveTab('events')">
+        Events ({{ events.length }})
+      </button>
+      <button 
+        class="tab" 
+        [class.active]="activeTab === 'settings'"
+        (click)="setActiveTab('settings')">
+        Settings
+      </button>
+    </div>
+    
+    <!-- Tab Content -->
+    <div class="tab-content">
+      
+      <!-- Overview Tab -->
+      <div class="tab-panel" *ngIf="activeTab === 'overview'">
+        <div class="info-grid">
+          <div class="info-card">
+            <h3>Device Information</h3>
+            <div class="info-rows">
+              <div class="info-row">
+                <span class="label">Name:</span>
+                <span class="value">{{ device.name }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Type:</span>
+                <span class="value">{{ device.device_type }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Status:</span>
+                <span class="value">
+                  <span class="status-badge" [class]="statusClass">{{ device.status }}</span>
+                </span>
+              </div>
+              <div class="info-row">
+                <span class="label">Monitored:</span>
+                <span class="value">{{ device.is_monitored ? 'Yes' : 'No' }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="info-card">
+            <h3>Network Configuration</h3>
+            <div class="info-rows">
+              <div class="info-row">
+                <span class="label">IP Address:</span>
+                <span class="value mono">{{ device.ip || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">MAC Address:</span>
+                <span class="value mono">{{ device.mac || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Hostname:</span>
+                <span class="value mono">{{ device.hostname || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">VLAN ID:</span>
+                <span class="value">{{ device.vlan_id || 'N/A' }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="info-card">
+            <h3>Hardware Details</h3>
+            <div class="info-rows">
+              <div class="info-row">
+                <span class="label">Manufacturer:</span>
+                <span class="value">{{ device.manufacturer || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Model:</span>
+                <span class="value">{{ device.model || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Serial Number:</span>
+                <span class="value mono">{{ device.serial_number || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Firmware:</span>
+                <span class="value">{{ device.firmware_version || 'N/A' }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="info-card">
+            <h3>Additional Information</h3>
+            <div class="info-rows">
+              <div class="info-row">
+                <span class="label">Location:</span>
+                <span class="value">{{ device.location || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Description:</span>
+                <span class="value">{{ device.description || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Last Seen:</span>
+                <span class="value">{{ device.last_seen ? (device.last_seen | date:'medium') : 'Never' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Created:</span>
+                <span class="value">{{ device.created_at | date:'medium' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Quick Stats -->
+        <div class="quick-stats">
+          <div class="stat-box">
+            <div class="stat-value">{{ ports.length }}</div>
+            <div class="stat-label">Total Ports</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value">{{ activePorts.length }}</div>
+            <div class="stat-label">Active Ports</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value">{{ links.length }}</div>
+            <div class="stat-label">Total Links</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value">{{ activeLinks.length }}</div>
+            <div class="stat-label">Active Links</div>
+          </div>
+          <div class="stat-box critical" *ngIf="criticalEvents.length > 0">
+            <div class="stat-value">{{ criticalEvents.length }}</div>
+            <div class="stat-label">Critical Events</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Ports Tab -->
+      <div class="tab-panel" *ngIf="activeTab === 'ports'">
+        <div class="panel-header">
+          <h3>Network Ports</h3>
+        </div>
+        
+        <div class="ports-list" *ngIf="ports.length > 0">
+          <div class="port-card" *ngFor="let port of ports">
+            <div class="port-header">
+              <div class="port-name">
+                <span class="port-icon" [class]="getPortStatusClass(port.status)">●</span>
+                <span>{{ port.port_name }}</span>
+                <span class="port-number">#{{ port.port_number }}</span>
+              </div>
+              <span class="status-badge" [class]="getPortStatusClass(port.status)">
+                {{ port.status }}
+              </span>
+            </div>
+            
+            <div class="port-details">
+              <div class="port-detail">
+                <span class="label">Type:</span>
+                <span>{{ port.port_type || 'N/A' }}</span>
+              </div>
+              <div class="port-detail">
+                <span class="label">Speed:</span>
+                <span>{{ port.speed_mbps ? port.speed_mbps + ' Mbps' : 'N/A' }}</span>
+              </div>
+              <div class="port-detail">
+                <span class="label">MAC:</span>
+                <span class="mono">{{ port.mac_address || 'N/A' }}</span>
+              </div>
+              <div class="port-detail">
+                <span class="label">VLAN:</span>
+                <span>{{ port.vlan_id || 'N/A' }}</span>
+              </div>
+            </div>
+            
+            <div class="port-stats">
+              <div class="stat-item">
+                <span class="stat-label">RX:</span>
+                <span class="stat-value">{{ port.rx_bytes | number }} bytes</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">TX:</span>
+                <span class="stat-value">{{ port.tx_bytes | number }} bytes</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Errors:</span>
+                <span class="stat-value">{{ port.rx_errors + port.tx_errors }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="empty-state" *ngIf="ports.length === 0">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <p>No ports found for this device</p>
+        </div>
+      </div>
+      
+      <!-- Links Tab -->
+      <div class="tab-panel" *ngIf="activeTab === 'links'">
+        <div class="panel-header">
+          <h3>Network Links</h3>
+        </div>
+        
+        <div class="links-list" *ngIf="links.length > 0">
+          <div class="link-card" *ngFor="let link of links" (click)="viewLink(link)">
+            <div class="link-header">
+              <span class="status-badge" [class]="getLinkStatusClass(link.status)">
+                {{ link.status }}
+              </span>
+            </div>
+            
+            <div class="link-details">
+              <div class="link-detail">
+                <span class="label">Bandwidth:</span>
+                <span>{{ link.bandwidth_mbps ? link.bandwidth_mbps + ' Mbps' : 'N/A' }}</span>
+              </div>
+              <div class="link-detail">
+                <span class="label">Latency:</span>
+                <span>{{ link.latency_ms ? link.latency_ms + ' ms' : 'N/A' }}</span>
+              </div>
+              <div class="link-detail">
+                <span class="label">Packet Loss:</span>
+                <span>{{ link.packet_loss_percent !== null ? link.packet_loss_percent + '%' : 'N/A' }}</span>
+              </div>
+              <div class="link-detail">
+                <span class="label">Utilization:</span>
+                <span>{{ link.utilization_percent !== null ? link.utilization_percent + '%' : 'N/A' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="empty-state" *ngIf="links.length === 0">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          <p>No links connected to this device</p>
+        </div>
+      </div>
+      
+      <!-- Events Tab -->
+      <div class="tab-panel" *ngIf="activeTab === 'events'">
+        <div class="panel-header">
+          <h3>Recent Events</h3>
+        </div>
+        
+        <div class="events-list" *ngIf="events.length > 0">
+          <div class="event-card" *ngFor="let event of events">
+            <div class="event-icon" [class]="getEventSeverityClass(event.severity)">
+              <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </div>
+            
+            <div class="event-content">
+              <div class="event-title">{{ event.title }}</div>
+              <div class="event-message">{{ event.message }}</div>
+              <div class="event-meta">
+                <span>{{ formatTimestamp(event.created_at) }}</span>
+                <span *ngIf="event.acknowledged" class="acknowledged-badge">Acknowledged</span>
+              </div>
+            </div>
+            
+            <button 
+              class="btn btn-sm" 
+              *ngIf="!event.acknowledged"
+              (click)="acknowledgeEvent(event)">
+              Acknowledge
+            </button>
+          </div>
+        </div>
+        
+        <div class="empty-state" *ngIf="events.length === 0">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+          </svg>
+          <p>No events for this device</p>
+        </div>
+      </div>
+      
+      <!-- Settings Tab -->
+      <div class="tab-panel" *ngIf="activeTab === 'settings'">
+        <div class="settings-panel">
+          <div class="settings-header">
+            <h3>Device Settings</h3>
+            <button class="btn btn-primary" *ngIf="!isEditing" (click)="enterEditMode()">
+              Edit Settings
+            </button>
+            <div class="edit-actions" *ngIf="isEditing">
+              <button class="btn btn-secondary" (click)="cancelEdit()">Cancel</button>
+              <button class="btn btn-primary" (click)="saveChanges()">Save Changes</button>
+            </div>
+          </div>
+          
+          <form class="settings-form">
+            <div class="form-group">
+              <label>Device Name</label>
+              <input 
+                type="text" 
+                [(ngModel)]="editForm.name" 
+                name="name"
+                class="form-input"
+                [disabled]="!isEditing"
+              />
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Device Type</label>
+                <select 
+                  [(ngModel)]="editForm.device_type" 
+                  name="type"
+                  class="form-input"
+                  [disabled]="!isEditing">
+                  <option value="router">Router</option>
+                  <option value="switch">Switch</option>
+                  <option value="pc">PC</option>
+                  <option value="server">Server</option>
+                  <option value="printer">Printer</option>
+                  <option value="access_point">Access Point</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label>IP Address</label>
+                <input 
+                  type="text" 
+                  [(ngModel)]="editForm.ip" 
+                  name="ip"
+                  class="form-input"
+                  [disabled]="!isEditing"
+                />
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>MAC Address</label>
+                <input 
+                  type="text" 
+                  [(ngModel)]="editForm.mac" 
+                  name="mac"
+                  class="form-input"
+                  [disabled]="!isEditing"
+                />
+              </div>
+              
+              <div class="form-group">
+                <label>Hostname</label>
+                <input 
+                  type="text" 
+                  [(ngModel)]="editForm.hostname" 
+                  name="hostname"
+                  class="form-input"
+                  [disabled]="!isEditing"
+                />
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Location</label>
+              <input 
+                type="text" 
+                [(ngModel)]="editForm.location" 
+                name="location"
+                class="form-input"
+                [disabled]="!isEditing"
+              />
+            </div>
+            
+            <div class="form-group">
+              <label>Description</label>
+              <textarea 
+                [(ngModel)]="editForm.description" 
+                name="description"
+                rows="3"
+                class="form-input"
+                [disabled]="!isEditing"
+              ></textarea>
+            </div>
+            
+            <div class="form-group checkbox-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  [(ngModel)]="editForm.is_monitored" 
+                  name="monitored"
+                  [disabled]="!isEditing"
+                />
+                <span>Enable monitoring for this device</span>
+              </label>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>

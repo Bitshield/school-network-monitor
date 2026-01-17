@@ -1,0 +1,158 @@
+<div class="network-map-container">
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="btn btn-icon" (click)="refresh()" title="Refresh">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
+      
+      <div class="divider"></div>
+      
+      <button class="btn btn-icon" (click)="zoomIn()" title="Zoom In">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+        </svg>
+      </button>
+      
+      <button class="btn btn-icon" (click)="zoomOut()" title="Zoom Out">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM7 10h6" />
+        </svg>
+      </button>
+      
+      <button class="btn btn-icon" (click)="centerGraph()" title="Center">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+        </svg>
+      </button>
+      
+      <button class="btn btn-icon" (click)="resetZoom()" title="Reset View">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+        </svg>
+      </button>
+    </div>
+    
+    <div class="toolbar-right">
+      <label class="layout-selector">
+        <span>Layout:</span>
+        <select [(ngModel)]="layoutType" (change)="applyLayout()">
+          <option value="breadthfirst">Hierarchical</option>
+          <option value="cose">Force-Directed</option>
+          <option value="circle">Circle</option>
+          <option value="grid">Grid</option>
+        </select>
+      </label>
+    </div>
+  </div>
+  
+  <!-- Cytoscape Graph -->
+  <div class="graph-wrapper">
+    <div #cytoscapeContainer class="cytoscape-container"></div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" *ngIf="isLoading">
+      <div class="spinner"></div>
+      <p>Loading topology...</p>
+    </div>
+  </div>
+  
+  <!-- Node Details Panel -->
+  <div class="details-panel" *ngIf="selectedNode">
+    <div class="panel-header">
+      <h3>{{ selectedNode.type === 'device' ? 'Device Details' : 'Link Details' }}</h3>
+      <button class="btn-close" (click)="selectedNode = null">×</button>
+    </div>
+    
+    <div class="panel-content">
+      <!-- Device Details -->
+      <div *ngIf="selectedNode.type === 'device'">
+        <div class="detail-row">
+          <span class="label">Name:</span>
+          <span class="value">{{ selectedNode.name }}</span>
+        </div>
+        
+        <div class="detail-row">
+          <span class="label">Type:</span>
+          <span class="value">{{ selectedNode.deviceType }}</span>
+        </div>
+        
+        <div class="detail-row">
+          <span class="label">IP Address:</span>
+          <span class="value">{{ selectedNode.ip || 'N/A' }}</span>
+        </div>
+        
+        <div class="detail-row">
+          <span class="label">Status:</span>
+          <span class="value">
+            <span class="status-badge" [class]="'status-' + selectedNode.status.toLowerCase()">
+              {{ selectedNode.status }}
+            </span>
+          </span>
+        </div>
+        
+        <div class="detail-row" *ngIf="selectedNode.data.location">
+          <span class="label">Location:</span>
+          <span class="value">{{ selectedNode.data.location }}</span>
+        </div>
+        
+        <div class="detail-row" *ngIf="selectedNode.data.last_seen">
+          <span class="label">Last Seen:</span>
+          <span class="value">{{ selectedNode.data.last_seen | date:'short' }}</span>
+        </div>
+        
+        <div class="actions">
+          <button class="btn btn-primary" (click)="pingDevice(selectedNode.id)">
+            Ping Device
+          </button>
+          <button class="btn btn-secondary" [routerLink]="['/devices', selectedNode.id]">
+            View Details
+          </button>
+        </div>
+      </div>
+      
+      <!-- Link Details -->
+      <div *ngIf="selectedNode.type === 'link'">
+        <div class="detail-row">
+          <span class="label">Status:</span>
+          <span class="value">
+            <span class="status-badge" [class]="'status-' + selectedNode.status.toLowerCase()">
+              {{ selectedNode.status }}
+            </span>
+          </span>
+        </div>
+        
+        <div class="detail-row" *ngIf="selectedNode.data.bandwidth_mbps">
+          <span class="label">Bandwidth:</span>
+          <span class="value">{{ selectedNode.data.bandwidth_mbps }} Mbps</span>
+        </div>
+        
+        <div class="detail-row" *ngIf="selectedNode.data.latency_ms">
+          <span class="label">Latency:</span>
+          <span class="value">{{ selectedNode.data.latency_ms }} ms</span>
+        </div>
+        
+        <div class="detail-row" *ngIf="selectedNode.data.packet_loss_percent">
+          <span class="label">Packet Loss:</span>
+          <span class="value">{{ selectedNode.data.packet_loss_percent }}%</span>
+        </div>
+        
+        <div class="actions">
+          <button class="btn btn-primary" (click)="testLink(selectedNode.id)">
+            Test Link
+          </button>
+          <button class="btn btn-secondary" [routerLink]="['/links', selectedNode.id]">
+            View Details
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,68 @@
+<div class="app-shell">
+  <header class="app-header">
+    <div class="title">
+      <span class="brand-square"></span>
+      <div>
+        <div class="name">School Network Monitor</div>
+        <div class="subtitle">Live topology & status</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="status-dot status-ok"></span>
+      <span class="status-label">Simulation running</span>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <section class="left-panel">
+      <h3>Legend</h3>
+      <ul class="legend-list">
+        <li>
+          <span class="legend-node router"></span>
+          <span>Router (gateway)</span>
+        </li>
+        <li>
+          <span class="legend-node switch"></span>
+          <span>Switch (distribution)</span>
+        </li>
+        <li>
+          <span class="legend-node pc"></span>
+          <span>PC / endpoint</span>
+        </li>
+        <li>
+          <span class="legend-node status-up"></span>
+          <span>Up</span>
+        </li>
+        <li>
+          <span class="legend-node status-down"></span>
+          <span>Down (error)</span>
+        </li>
+      </ul>
+
+      <h3>Current stats</h3>
+      <div class="stats">
+        <div class="stat-row">
+          <span>Total devices</span>
+          <span>{{ stats.totalDevices }}</span>
+        </div>
+        <div class="stat-row ok">
+          <span>Up</span>
+          <span>{{ stats.upDevices }}</span>
+        </div>
+        <div class="stat-row error">
+          <span>Down</span>
+          <span>{{ stats.downDevices }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="main-panel">
+      <app-network-map (statsChanged)="onStatsChanged($event)"></app-network-map>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>School lab topology demo</span>
+    <span class="footer-right">WebSocket: {{ connectionStatus }}</span>
+  </footer>
+</div>

@@ -1,0 +1,409 @@
+<div class="dashboard-container">
+  <!-- Header -->
+  <div class="dashboard-header">
+    <div class="header-left">
+      <h1>Network Dashboard</h1>
+      <span class="last-refresh">
+        Last updated: {{ lastRefresh | date:'short' }}
+      </span>
+    </div>
+
+    <div class="header-right">
+      <div class="ws-status" [title]="wsStatus">
+        <span class="ws-icon">{{ wsStatusIcon }}</span>
+        <span class="ws-text">{{ wsStatus }}</span>
+      </div>
+
+      <button
+        class="btn btn-icon"
+        (click)="toggleAutoRefresh()"
+        [class.active]="autoRefresh"
+        title="Toggle Auto-refresh"
+      >
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+      </button>
+
+      <button class="btn btn-primary" (click)="manualRefresh()">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-state" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Loading dashboard data...</p>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div class="dashboard-content" *ngIf="!isLoading">
+    <!-- Top Stats Cards -->
+    <div class="stats-grid">
+      <!-- Network Health Score -->
+      <div class="stat-card health-card" [class]="healthStatusClass">
+        <div class="card-header">
+          <h3>Network Health</h3>
+          <span class="health-icon">
+            <svg
+              *ngIf="healthScore"
+              class="icon"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </span>
+        </div>
+        <div class="card-body">
+          <!-- Health score, null-safe -->
+          <div class="health-score" *ngIf="healthScore as hs">
+            <span class="score-value">{{ hs.overall_score | number:'1.0-0' }}</span>
+            <span class="score-label">/ 100</span>
+          </div>
+
+          <div class="health-status" *ngIf="healthScore as hs">
+            {{ hs.status }}
+          </div>
+
+          <div class="health-components" *ngIf="healthScore as hs">
+            <div class="component">
+              <span class="component-label">Devices</span>
+              <span class="component-value">
+                {{ hs.components.device_health | number:'1.0-0' }}%
+              </span>
+            </div>
+            <div class="component">
+              <span class="component-label">Links</span>
+              <span class="component-value">
+                {{ hs.components.link_health | number:'1.0-0' }}%
+              </span>
+            </div>
+            <div class="component">
+              <span class="component-label">Events</span>
+              <span class="component-value">
+                {{ hs.components.event_impact | number:'1.0-0' }}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Devices Stats -->
+      <div class="stat-card">
+        <div class="card-header">
+          <h3>Devices</h3>
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+        <div class="card-body">
+          <div class="stat-number" *ngIf="statistics as stats">
+            {{ stats.devices.total }}
+          </div>
+
+          <div class="stat-breakdown" *ngIf="statistics as stats">
+            <div class="breakdown-item success">
+              <span class="dot"></span>
+              <span>{{ stats.devices.up }} UP</span>
+            </div>
+            <div class="breakdown-item error">
+              <span class="dot"></span>
+              <span>{{ stats.devices.down }} DOWN</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Links Stats -->
+      <div class="stat-card">
+        <div class="card-header">
+          <h3>Links</h3>
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+            />
+          </svg>
+        </div>
+        <div class="card-body">
+          <div class="stat-number" *ngIf="statistics as stats">
+            {{ stats.links.total }}
+          </div>
+          <div class="stat-breakdown" *ngIf="statistics as stats">
+            <div class="breakdown-item success">
+              <span class="dot"></span>
+              <span>{{ stats.links.up }} UP</span>
+            </div>
+            <div class="breakdown-item warning">
+              <span class="dot"></span>
+              <span>{{ stats.links.degraded }} DEGRADED</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Events Stats -->
+      <div class="stat-card">
+        <div class="card-header">
+          <h3>Events (24h)</h3>
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+            />
+          </svg>
+        </div>
+        <div class="card-body">
+          <div class="stat-number" *ngIf="eventSummary as es">
+            {{ es.total }}
+          </div>
+          <div class="stat-breakdown" *ngIf="eventSummary as es">
+            <div class="breakdown-item error">
+              <span class="dot"></span>
+              <span>{{ es.critical }} Critical</span>
+            </div>
+            <div class="breakdown-item warning">
+              <span class="dot"></span>
+              <span>{{ es.unacknowledged }} Unacked</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="content-grid">
+      <!-- Device Status Chart -->
+      <div class="panel chart-panel">
+        <div class="panel-header">
+          <h3>Device Status</h3>
+        </div>
+        <div class="panel-body">
+          <div class="status-chart">
+            <div class="status-bar" *ngFor="let status of deviceStatusBreakdown">
+              <div
+                class="bar-fill"
+                [style.width.%]="status.percentage"
+                [style.background-color]="status.color"
+              ></div>
+              <div class="bar-label">
+                <span class="status-name">{{ status.status }}</span>
+                <span class="status-count">{{ status.count }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-legend">
+            <div class="legend-item" *ngFor="let status of deviceStatusBreakdown">
+              <span
+                class="legend-dot"
+                [style.background-color]="status.color"
+              ></span>
+              <span class="legend-label">
+                {{ status.status }}: {{ status.percentage | number:'1.0-1' }}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Device Types -->
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Device Types</h3>
+        </div>
+        <div class="panel-body">
+          <div class="type-list">
+            <div class="type-item" *ngFor="let type of deviceTypeBreakdown">
+              <div class="type-icon" [style.background-color]="type.color"></div>
+              <span class="type-name">{{ type.type }}</span>
+              <span class="type-count">{{ type.count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Critical Devices -->
+      <div class="panel alert-panel">
+        <div class="panel-header">
+          <h3>Critical Devices</h3>
+          <span class="badge badge-error" *ngIf="criticalDevices.length > 0">
+            {{ criticalDevices.length }}
+          </span>
+        </div>
+        <div class="panel-body">
+          <div class="alert-list" *ngIf="criticalDevices.length > 0">
+            <div class="alert-item" *ngFor="let device of criticalDevices">
+              <div class="alert-icon error">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+              </div>
+              <div class="alert-content">
+                <div class="alert-title">{{ device.name }}</div>
+                <div class="alert-subtitle">
+                  {{ device.ip }} - {{ device.device_type }}
+                </div>
+              </div>
+              <button class="btn btn-sm" (click)="pingDevice(device.id)">Ping</button>
+            </div>
+          </div>
+          <div class="empty-state" *ngIf="criticalDevices.length === 0">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <p>All devices are healthy</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Events -->
+      <div class="panel events-panel">
+        <div class="panel-header">
+          <h3>Recent Events</h3>
+          <a class="view-all" routerLink="/events">View All</a>
+        </div>
+        <div class="panel-body">
+          <div class="event-list" *ngIf="recentEvents.length > 0">
+            <div class="event-item" *ngFor="let event of recentEvents">
+              <div class="event-icon" [class]="getEventSeverityClass(event.severity)">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                  />
+                </svg>
+              </div>
+              <div class="event-content">
+                <div class="event-title">{{ event.title }}</div>
+                <div class="event-subtitle">{{ event.message }}</div>
+                <div class="event-meta">
+                  <span>{{ formatTimestamp(event.created_at) }}</span>
+                  <span
+                    *ngIf="!event.acknowledged"
+                    class="unacked-badge"
+                    >Unacknowledged</span
+                  >
+                </div>
+              </div>
+              <button
+                class="btn btn-sm"
+                *ngIf="!event.acknowledged"
+                (click)="acknowledgeEvent(event.id)"
+              >
+                Acknowledge
+              </button>
+            </div>
+          </div>
+          <div class="empty-state" *ngIf="recentEvents.length === 0">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+              />
+            </svg>
+            <p>No recent events</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <h3>Quick Actions</h3>
+      <div class="actions-grid">
+        <button class="action-btn" (click)="runMonitoringCycle()">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+            />
+          </svg>
+          <span>Run Monitoring</span>
+        </button>
+
+        <button class="action-btn" routerLink="/discovery">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <span>Network Scan</span>
+        </button>
+
+        <button class="action-btn" routerLink="/devices">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            />
+          </svg>
+          <span>Manage Devices</span>
+        </button>
+
+        <button class="action-btn" routerLink="/topology">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+            />
+          </svg>
+          <span>View Topology</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

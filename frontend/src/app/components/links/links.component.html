@@ -1,0 +1,246 @@
+<div class="links-container">
+  <!-- Header -->
+  <div class="links-header">
+    <div class="header-left">
+      <h1>Network Links</h1>
+      <span class="link-count">{{ totalLinks }} links</span>
+    </div>
+
+    <div class="header-right">
+      <button class="btn btn-primary" (click)="openAddModal()">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+          />
+        </svg>
+        Add Link
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-panel">
+    <select [(ngModel)]="selectedStatus" (change)="onFilterChange()" class="filter-select">
+      <option value="">All Statuses</option>
+      <option *ngFor="let status of linkStatuses" [value]="status">
+        {{ status }}
+      </option>
+    </select>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-state" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Loading links...</p>
+  </div>
+
+  <!-- Links Grid -->
+  <div class="links-grid" *ngIf="!isLoading">
+    <div class="link-card" *ngFor="let link of links">
+      <div class="link-header">
+        <span class="status-badge" [class]="getStatusClass(link.status)">
+          {{ link.status }}
+        </span>
+        <div class="link-actions">
+          <button class="btn-icon" (click)="testLink(link)" title="Test Link">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+          </button>
+          <button class="btn-icon danger" (click)="deleteLink(link)" title="Delete">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="link-connection">
+        <div class="device-node source">
+          <div class="device-icon">🔷</div>
+          <div class="device-name">
+            {{ getDeviceName(link.source_device_id) }}
+          </div>
+        </div>
+
+        <div class="connection-line">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M14 5l7 7m0 0l-7 7m7-7H3"
+            />
+          </svg>
+        </div>
+
+        <div class="device-node target">
+          <div class="device-icon">🔷</div>
+          <div class="device-name">
+            {{ getDeviceName(link.target_device_id) }}
+          </div>
+        </div>
+      </div>
+
+      <div class="link-metrics">
+        <div class="metric">
+          <span class="metric-label">Bandwidth</span>
+          <span class="metric-value">
+            {{ link.bandwidth_mbps ?? 'N/A' }} Mbps
+          </span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Latency</span>
+          <span class="metric-value">
+            {{ link.latency_ms ?? 'N/A' }} ms
+          </span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Loss</span>
+          <span class="metric-value">
+            {{
+              link.packet_loss_percent !== null && link.packet_loss_percent !== undefined
+                ? link.packet_loss_percent + '%'
+                : 'N/A'
+            }}
+          </span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Utilization</span>
+          <span class="metric-value">
+            {{
+              link.utilization_percent !== null && link.utilization_percent !== undefined
+                ? link.utilization_percent + '%'
+                : 'N/A'
+            }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="empty-state" *ngIf="links.length === 0">
+      <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+        />
+      </svg>
+      <p>No links found</p>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" *ngIf="!isLoading && links.length > 0">
+    <button
+      class="btn"
+      (click)="currentPage = currentPage - 1; loadLinks()"
+      [disabled]="currentPage === 1"
+    >
+      Previous
+    </button>
+    <span class="page-info">Page {{ currentPage }}</span>
+    <button class="btn" (click)="currentPage = currentPage + 1; loadLinks()">
+      Next
+    </button>
+  </div>
+</div>
+
+<!-- Add Link Modal -->
+<div class="modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Add New Link</h2>
+      <button class="btn-close" (click)="closeAddModal()">×</button>
+    </div>
+
+    <div class="modal-body">
+      <form class="link-form">
+        <div class="form-group">
+          <label>Source Device *</label>
+          <select [(ngModel)]="newLink.source_device_id" name="source" class="form-input">
+            <option value="">Select device...</option>
+            <option *ngFor="let device of devices" [value]="device.id">
+              {{ device.name }} ({{ device.ip }})
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Target Device *</label>
+          <select [(ngModel)]="newLink.target_device_id" name="target" class="form-input">
+            <option value="">Select device...</option>
+            <option *ngFor="let device of devices" [value]="device.id">
+              {{ device.name }} ({{ device.ip }})
+            </option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Bandwidth (Mbps)</label>
+            <input
+              type="number"
+              [(ngModel)]="newLink.bandwidth_mbps"
+              name="bandwidth"
+              class="form-input"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Source Port</label>
+            <input
+              type="text"
+              [(ngModel)]="newLink.source_port_id"
+              name="source_port"
+              class="form-input"
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Target Port</label>
+            <input
+              type="text"
+              [(ngModel)]="newLink.target_port_id"
+              name="target_port"
+              class="form-input"
+            />
+          </div>
+
+          <!-- VLAN optional: uncomment if you add vlanid?: number to LinkCreate
+          <div class="form-group">
+            <label>VLAN ID</label>
+            <input
+              type="number"
+              [(ngModel)]="newLink.vlanid"
+              name="vlan"
+              class="form-input"
+            />
+          </div>
+          -->
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeAddModal()">Cancel</button>
+      <button class="btn btn-primary" (click)="createLink()">Add Link</button>
+    </div>
+  </div>
+</div>
