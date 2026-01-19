@@ -1,6 +1,10 @@
 """
 Main FastAPI application entry point.
+UPDATED: Added warning suppression and improved error handling
 """
+
+# Suppress warnings FIRST before other imports
+import suppress_warnings
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,7 +17,7 @@ import asyncio
 from datetime import datetime
 
 from config import settings, validate_settings
-from database import async_init_db
+from database import async_init_db, async_session
 from api.v1.router import api_router
 from core.logger import setup_logger
 
@@ -30,17 +34,19 @@ async def start_background_monitoring():
     """
     Start background monitoring tasks.
     This will run continuously in the background.
+    Uses separate database sessions to avoid concurrent connection issues.
     """
-    from database import async_session
     from services.monitoring import MonitoringService
     
     logger.info("Starting background monitoring service...")
     
     try:
+        # Create a dedicated session for monitoring
         async with async_session() as db:
             monitor = MonitoringService(db)
             
             # Start continuous monitoring with configured interval
+            # This will create NEW sessions for each monitoring cycle
             asyncio.create_task(
                 monitor.start_continuous_monitoring(
                     interval=settings.MONITORING_INTERVAL
@@ -51,7 +57,7 @@ async def start_background_monitoring():
             f"Background monitoring started (interval: {settings.MONITORING_INTERVAL}s)"
         )
     except Exception as e:
-        logger.error(f"Failed to start background monitoring: {e}")
+        logger.error(f"Failed to start background monitoring: {e}", exc_info=True)
 
 
 async def stop_background_monitoring():
@@ -60,7 +66,7 @@ async def stop_background_monitoring():
     if monitoring_task:
         monitoring_task.cancel()
         try:
-            await monitoring_task # type: ignore
+            await monitoring_task # pyright: ignore[reportGeneralTypeIssues]
         except asyncio.CancelledError:
             logger.info("Background monitoring stopped")
 
@@ -86,12 +92,13 @@ async def lifespan(app: FastAPI):
         await async_init_db()
         logger.info("✓ Database initialized")
         
-        # Start background tasks
-        if not settings.DEBUG:  # Skip in debug to avoid conflicts with reload
+        # Start background tasks (only in production/non-debug mode)
+        if not settings.DEBUG:
             await start_background_monitoring()
             logger.info("✓ Background monitoring started")
         else:
             logger.info("⚠ Background monitoring disabled in debug mode")
+            logger.info("  (This prevents conflicts with auto-reload)")
         
         logger.info("=" * 60)
         logger.info(f"🚀 {settings.APP_NAME} is ready!")
@@ -99,7 +106,7 @@ async def lifespan(app: FastAPI):
         logger.info("=" * 60)
         
     except Exception as e:
-        logger.error(f"❌ Startup failed: {e}")
+        logger.error(f"❌ Startup failed: {e}", exc_info=True)
         raise
     
     yield
@@ -113,7 +120,7 @@ async def lifespan(app: FastAPI):
         await stop_background_monitoring()
         logger.info("✓ Background tasks stopped")
     except Exception as e:
-        logger.error(f"Error during shutdown: {e}")
+        logger.error(f"Error during shutdown: {e}", exc_info=True)
 
 
 # Create FastAPI application

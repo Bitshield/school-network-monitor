@@ -1,18 +1,20 @@
 """
 Network monitoring service for continuous device and link health checks.
+FIXED: SQLAlchemy session concurrency issues
 """
 
 import asyncio
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, or_
 from models.device import Device, DeviceStatusEnum
 from models.link import Link, LinkStatusEnum
 from models.port import Port, PortStatusEnum
-from models.event import Event, EventTypeEnum, EventSeverityEnum # type: ignore
+from models.event import Event, EventTypeEnum, EventSeverityEnum
 from services.cable_health import CableHealthAnalyzer
 from icmplib import async_ping
+from database import async_session
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,7 +38,7 @@ class DeviceMonitor:
         Returns:
             Check result dictionary
         """
-        if not device.ip: # type: ignore
+        if not device.ip:
             return {
                 "device_id": device.id,
                 "status": "UNKNOWN",
@@ -55,12 +57,12 @@ class DeviceMonitor:
             new_status = DeviceStatusEnum.UP if host.is_alive else DeviceStatusEnum.DOWN
 
             # Update device
-            device.status = new_status # type: ignore
-            device.last_seen = datetime.utcnow() # type: ignore
+            device.status = new_status
+            device.last_seen = datetime.utcnow()
 
             # Create event if status changed
-            if old_status != new_status: # type: ignore
-                await self._create_status_event(device, old_status, new_status) # type: ignore
+            if old_status != new_status:
+                await self._create_status_event(device, old_status, new_status)
 
             return {
                 "device_id": device.id,
@@ -76,7 +78,7 @@ class DeviceMonitor:
 
         except Exception as e:
             logger.error(f"Failed to check device {device.id} ({device.ip}): {e}")
-            device.status = DeviceStatusEnum.UNREACHABLE # type: ignore
+            device.status = DeviceStatusEnum.UNREACHABLE
             return {
                 "device_id": device.id,
                 "status": "ERROR",
@@ -207,7 +209,7 @@ class LinkMonitor:
             source_device = devices.get(link.source_device_id)
             target_device = devices.get(link.target_device_id)
 
-            if not target_device or not target_device.ip: # pyright: ignore[reportGeneralTypeIssues]
+            if not target_device or not target_device.ip:
                 return {
                     "link_id": link.id,
                     "status": "ERROR",
@@ -215,7 +217,7 @@ class LinkMonitor:
                 }
 
             # Test link
-            test_result = await self.analyzer.test_link(target_device.ip) # type: ignore
+            test_result = await self.analyzer.test_link(target_device.ip)
 
             old_status = link.status
             new_status = self._map_health_to_status(test_result.get("status"))
@@ -228,8 +230,8 @@ class LinkMonitor:
             link.last_seen = datetime.utcnow() # pyright: ignore[reportAttributeAccessIssue]
 
             # Create event if status changed significantly
-            if old_status != new_status and new_status in [LinkStatusEnum.DOWN, LinkStatusEnum.DEGRADED]: # type: ignore
-                await self._create_link_event(link, old_status, new_status, test_result) # type: ignore
+            if old_status != new_status and new_status in [LinkStatusEnum.DOWN, LinkStatusEnum.DEGRADED]: # pyright: ignore[reportGeneralTypeIssues]
+                await self._create_link_event(link, old_status, new_status, test_result)
 
             return {
                 "link_id": link.id,
@@ -390,19 +392,20 @@ class MonitoringService:
     """
     Unified monitoring service for devices, links, and ports.
     Designed to run as a background task.
+    
+    FIXED: Creates new database session for each monitoring cycle to avoid
+    concurrent connection issues.
     """
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.device_monitor = DeviceMonitor(db)
-        self.link_monitor = LinkMonitor(db)
-        self.port_monitor = PortMonitor(db)
         self.is_running = False
         self.check_interval = 60  # seconds
 
     async def run_monitoring_cycle(self) -> Dict:
         """
         Run a complete monitoring cycle for all components.
+        Uses separate database session to avoid concurrency issues.
         
         Returns:
             Combined monitoring results
@@ -410,24 +413,24 @@ class MonitoringService:
         logger.info("Starting monitoring cycle")
         start_time = datetime.utcnow()
 
-        # Run all monitors concurrently
-        device_task = self.device_monitor.check_all_monitored_devices()
-        link_task = self.link_monitor.check_all_links()
+        # Create NEW database session for this cycle
+        async with async_session() as db:
+            try:
+                device_monitor = DeviceMonitor(db)
+                link_monitor = LinkMonitor(db)
 
-        device_results, link_results = await asyncio.gather(
-            device_task,
-            link_task,
-            return_exceptions=True
-        )
+                # Run all monitors
+                device_results = await device_monitor.check_all_monitored_devices()
+                link_results = await link_monitor.check_all_links()
 
-        # Handle exceptions
-        if isinstance(device_results, Exception):
-            logger.error(f"Device monitoring failed: {device_results}")
-            device_results = {"error": str(device_results)}
-        
-        if isinstance(link_results, Exception):
-            logger.error(f"Link monitoring failed: {link_results}")
-            link_results = {"error": str(link_results)}
+                # Commit session
+                await db.commit()
+
+            except Exception as e:
+                logger.error(f"Link monitoring failed: {e}", exc_info=True)
+                await db.rollback()
+                link_results = {"error": str(e)}
+                device_results = {"error": str(e)}
 
         duration = (datetime.utcnow() - start_time).total_seconds()
 
@@ -460,7 +463,7 @@ class MonitoringService:
                 await self.run_monitoring_cycle()
                 await asyncio.sleep(self.check_interval)
             except Exception as e:
-                logger.error(f"Monitoring cycle error: {e}")
+                logger.error(f"Monitoring cycle error: {e}", exc_info=True)
                 await asyncio.sleep(self.check_interval)
 
     def stop_monitoring(self):
@@ -475,21 +478,30 @@ class MonitoringService:
         Returns:
             Status dictionary
         """
-        # Get counts from database
-        device_count = await self.db.execute(
-            select(Device).where(Device.is_monitored == True)
-        )
-        monitored_devices = len(device_count.scalars().all())
+        # Create new session for status check
+        async with async_session() as db:
+            try:
+                # Get counts from database
+                device_count = await db.execute(
+                    select(Device).where(Device.is_monitored == True)
+                )
+                monitored_devices = len(device_count.scalars().all())
 
-        link_count = await self.db.execute(select(Link))
-        total_links = len(link_count.scalars().all())
+                link_count = await db.execute(select(Link))
+                total_links = len(link_count.scalars().all())
 
-        # Get recent events count
-        recent_time = datetime.utcnow() - timedelta(hours=1)
-        event_count = await self.db.execute(
-            select(Event).where(Event.created_at >= recent_time)
-        )
-        recent_events = len(event_count.scalars().all())
+                # Get recent events count
+                recent_time = datetime.utcnow() - timedelta(hours=1)
+                event_count = await db.execute(
+                    select(Event).where(Event.created_at >= recent_time)
+                )
+                recent_events = len(event_count.scalars().all())
+
+            except Exception as e:
+                logger.error(f"Failed to get monitoring status: {e}")
+                monitored_devices = 0
+                total_links = 0
+                recent_events = 0
 
         return {
             "is_running": self.is_running,

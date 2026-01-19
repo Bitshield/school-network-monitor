@@ -1,19 +1,22 @@
-# Core Framework - Python 3.14 Compatible
+# Core Framework - Python 3.12+ Compatible
 fastapi==0.109.1
 uvicorn[standard]==0.27.0
 python-dotenv==1.0.0
 pydantic==2.7.0
 pydantic-settings==2.2.1
 
-# Database - psycopg3 async (use 3.2.13 or 3.3.2 for Python 3.14 support)
-psycopg[binary]==3.2.13
+# Database - psycopg3 async (Python 3.12+ compatible)
+psycopg[binary]==3.2.3
 sqlalchemy==2.0.25
 alembic==1.13.2
 
 # Network Tools
 scapy==2.5.0
-pysnmp==4.4.12
 icmplib==3.0.3
+
+# SNMP - REMOVED pysnmp due to Python 3.12 incompatibility
+# pysnmp requires asyncore which was removed in Python 3.12
+# Using stub implementation instead
 
 # Async / WebSocket
 aiohttp==3.9.2
@@ -21,15 +24,19 @@ websockets==12.0
 
 # Scheduling
 APScheduler==3.10.4
-celery==5.3.6
+
+# Redis (optional)
 redis==5.0.1
 
 # Security
 PyJWT>=2.8.0,<3.0.0
-passlib==1.7.4
+passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 bcrypt==4.1.2
 python-jose[cryptography]==3.3.0
+
+# Updated cryptography to avoid TripleDES warnings
+cryptography>=42.0.0
 
 # Logging
 python-json-logger==2.0.7
@@ -46,14 +53,6 @@ black==24.1.1
 flake8==7.0.0
 mypy==1.8.0
 
-# Docs
-mkdocs==1.5.3
-mkdocs-material==9.5.3
-
 # Utilities
 click==8.1.7
 rich==13.7.0
-
-
-pyasn1==0.6.0
-pysnmp==4.4.12
