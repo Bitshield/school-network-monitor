@@ -1,8 +1,18 @@
-from sqlalchemy import Column, String, DateTime, Float, Enum, ForeignKey, Integer
-from sqlalchemy.orm import relationship
+from sqlalchemy import String, Integer, DateTime, Float, Enum as SQLEnum, ForeignKey
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from database import Base
 from datetime import datetime
 from enum import Enum as PyEnum
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from models.device import Device
+
+
+class LinkTypeEnum(str, PyEnum):
+    PHYSICAL = "PHYSICAL"
+    LOGICAL = "LOGICAL"
+    VIRTUAL = "VIRTUAL"
 
 
 class LinkStatusEnum(str, PyEnum):
@@ -12,83 +22,66 @@ class LinkStatusEnum(str, PyEnum):
     UNKNOWN = "UNKNOWN"
 
 
-class LinkTypeEnum(str, PyEnum):
-    PHYSICAL = "PHYSICAL"
-    LOGICAL = "LOGICAL"
-    VIRTUAL = "VIRTUAL"
-    UNKNOWN = "UNKNOWN"
-
-
 class Link(Base):
     __tablename__ = "links"
 
-    id = Column(String, primary_key=True)
+    id: Mapped[str] = mapped_column(String, primary_key=True)
     
     # Source and target devices
-    source_device_id = Column(String, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True)
-    target_device_id = Column(String, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_device_id: Mapped[str] = mapped_column(String, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_device_id: Mapped[str] = mapped_column(String, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Port information (optional)
-    source_port_id = Column(String, ForeignKey("ports.id", ondelete="SET NULL"), nullable=True)
-    target_port_id = Column(String, ForeignKey("ports.id", ondelete="SET NULL"), nullable=True)
+    source_port_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("ports.id", ondelete="SET NULL"), nullable=True)
+    target_port_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("ports.id", ondelete="SET NULL"), nullable=True)
     
     # Link type and status
-    link_type = Column(Enum(LinkTypeEnum), default=LinkTypeEnum.PHYSICAL)
-    status = Column(Enum(LinkStatusEnum), default=LinkStatusEnum.UNKNOWN, index=True)
+    link_type: Mapped[LinkTypeEnum] = mapped_column(SQLEnum(LinkTypeEnum), default=LinkTypeEnum.PHYSICAL)
+    status: Mapped[LinkStatusEnum] = mapped_column(SQLEnum(LinkStatusEnum), default=LinkStatusEnum.UNKNOWN, index=True)
     
     # Performance metrics
-    bandwidth = Column(Integer, nullable=True)  # in Mbps
-    speed_mbps = Column(Float, nullable=True)  # Actual speed
-    duplex = Column(String(50), nullable=True)  # Full, Half
-    utilization = Column(Float, default=0.0)  # 0-100 percentage
+    bandwidth: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # in Mbps
+    speed_mbps: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # actual speed
+    duplex: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # Full, Half, etc.
+    utilization: Mapped[float] = mapped_column(Float, default=0.0)  # in link percentage
     
     # Health metrics
-    packet_loss = Column(Float, default=0.0)  # Percentage
-    latency = Column(Float, default=0.0)  # in ms
-    jitter = Column(Float, default=0.0)  # in ms
+    packet_loss: Mapped[float] = mapped_column(Float, default=0.0)  # Percentage
+    latency: Mapped[float] = mapped_column(Float, default=0.0)  # in ms
+    jitter: Mapped[float] = mapped_column(Float, default=0.0)  # in ms
     
     # Routing information
-    cost = Column(Integer, nullable=True)  # Link cost for routing protocols
+    cost: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Link cost for routing protocols
     
     # Description
-    description = Column(String(500), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    last_seen = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_seen: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    source_device = relationship(
+    source_device: Mapped["Device"] = relationship(
         "Device",
         foreign_keys=[source_device_id],
         back_populates="from_links"
     )
-    target_device = relationship(
+    target_device: Mapped["Device"] = relationship(
         "Device",
         foreign_keys=[target_device_id],
         back_populates="to_links"
     )
-    source_port = relationship(
+    source_port: Mapped[Optional["Port"]] = relationship( # type: ignore
         "Port",
         foreign_keys=[source_port_id],
-        back_populates="source_links"
+        back_populates="outgoing_links"
     )
-    target_port = relationship(
+    target_port: Mapped[Optional["Port"]] = relationship( # type: ignore
         "Port",
         foreign_keys=[target_port_id],
-        back_populates="target_links"
-    )
-    health_metrics = relationship(
-        "CableHealthMetrics",
-        back_populates="link",
-        cascade="all, delete-orphan"
-    )
-    events = relationship(
-        "Event",
-        back_populates="link",
-        cascade="all, delete-orphan"
+        back_populates="incoming_links"
     )
 
     def __repr__(self):
-        return f"<Link {self.source_device_id}->{self.target_device_id}>"
+        return f"<Link {self.id} ({self.source_device_id} -> {self.target_device_id})>"

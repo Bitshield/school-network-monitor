@@ -1,10 +1,10 @@
 """
 Network monitoring service for continuous device and link health checks.
-FIXED: SQLAlchemy session concurrency issues
+FIXED: SQLAlchemy type checking and attribute access issues
 """
 
 import asyncio
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, cast
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
@@ -38,9 +38,12 @@ class DeviceMonitor:
         Returns:
             Check result dictionary
         """
-        if not device.ip:
+        # Get current IP (handle Column type)
+        device_ip = str(device.ip) if device.ip else None
+        
+        if not device_ip:
             return {
-                "device_id": device.id,
+                "device_id": str(device.id),
                 "status": "UNKNOWN",
                 "error": "No IP address configured",
             }
@@ -48,26 +51,27 @@ class DeviceMonitor:
         try:
             # Ping device
             host = await async_ping(
-                device.ip,
+                device_ip,
                 count=self.ping_count,
                 timeout=self.ping_timeout
             )
 
-            old_status = device.status
+            # Store old status before changing
+            old_status = DeviceStatusEnum(device.status) if device.status else DeviceStatusEnum.UNKNOWN
             new_status = DeviceStatusEnum.UP if host.is_alive else DeviceStatusEnum.DOWN
 
-            # Update device
-            device.status = new_status
-            device.last_seen = datetime.utcnow()
+            # Update device - use proper attribute assignment
+            device.status = new_status  # type: ignore[assignment]
+            device.last_seen = datetime.utcnow()  # type: ignore[assignment]
 
             # Create event if status changed
             if old_status != new_status:
                 await self._create_status_event(device, old_status, new_status)
 
             return {
-                "device_id": device.id,
-                "device_name": device.name,
-                "ip": device.ip,
+                "device_id": str(device.id),
+                "device_name": str(device.name),
+                "ip": device_ip,
                 "is_alive": host.is_alive,
                 "status": new_status.value,
                 "latency_ms": host.avg_rtt if host.is_alive else None,
@@ -77,10 +81,10 @@ class DeviceMonitor:
             }
 
         except Exception as e:
-            logger.error(f"Failed to check device {device.id} ({device.ip}): {e}")
-            device.status = DeviceStatusEnum.UNREACHABLE
+            logger.error(f"Failed to check device {device.id} ({device_ip}): {e}")
+            device.status = DeviceStatusEnum.UNREACHABLE  # type: ignore[assignment]
             return {
-                "device_id": device.id,
+                "device_id": str(device.id),
                 "status": "ERROR",
                 "error": str(e),
             }
@@ -99,14 +103,18 @@ class DeviceMonitor:
             id=f"evt-{device.id}-{datetime.utcnow().timestamp()}",
             event_type=event_type,
             severity=severity,
-            device_id=device.id,
+            device_id=str(device.id),
             message=f"Device {device.name} status changed from {old_status.value} to {new_status.value}",
             details={
                 "old_status": old_status.value,
                 "new_status": new_status.value,
-                "ip": device.ip,
+                "ip": str(device.ip) if device.ip else None,
             },
             source="monitoring_service",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            first_occurred_at=datetime.utcnow(),
+            last_occurred_at=datetime.utcnow(),
         )
         self.db.add(event)
 
@@ -119,9 +127,9 @@ class DeviceMonitor:
         """
         # Get all monitored devices
         result = await self.db.execute(
-            select(Device).where(Device.is_monitored == True)
+            select(Device).where(Device.is_monitored == True)  # type: ignore[arg-type]
         )
-        devices = result.scalars().all()
+        devices = list(result.scalars().all())
 
         if not devices:
             logger.warning("No monitored devices found")
@@ -199,44 +207,48 @@ class LinkMonitor:
             result = await self.db.execute(
                 select(Device).where(
                     or_(
-                        Device.id == link.source_device_id,
-                        Device.id == link.target_device_id
+                        Device.id == str(link.source_device_id),
+                        Device.id == str(link.target_device_id)
                     )
                 )
             )
-            devices = {d.id: d for d in result.scalars().all()}
+            devices = {str(d.id): d for d in result.scalars().all()}
 
-            source_device = devices.get(link.source_device_id)
-            target_device = devices.get(link.target_device_id)
+            source_device = devices.get(str(link.source_device_id))
+            target_device = devices.get(str(link.target_device_id))
 
-            if not target_device or not target_device.ip:
+            # Check if target device has IP
+            target_ip = str(target_device.ip) if target_device and target_device.ip else None
+            
+            if not target_device or not target_ip:
                 return {
-                    "link_id": link.id,
+                    "link_id": str(link.id),
                     "status": "ERROR",
                     "error": "Target device IP not available",
                 }
 
             # Test link
-            test_result = await self.analyzer.test_link(target_device.ip)
+            test_result = await self.analyzer.test_link(target_ip)
 
-            old_status = link.status
+            # Store old status
+            old_status = LinkStatusEnum(link.status) if link.status else LinkStatusEnum.UNKNOWN
             new_status = self._map_health_to_status(test_result.get("status"))
 
             # Update link
-            link.status = new_status # pyright: ignore[reportAttributeAccessIssue]
-            link.latency = test_result.get("latency_avg_ms", 0)
-            link.packet_loss = test_result.get("packet_loss_percent", 0)
-            link.jitter = test_result.get("jitter_ms", 0)
-            link.last_seen = datetime.utcnow() # pyright: ignore[reportAttributeAccessIssue]
+            link.status = new_status  # type: ignore[assignment]
+            link.latency = float(test_result.get("latency_avg_ms", 0))  # type: ignore[assignment]
+            link.packet_loss = float(test_result.get("packet_loss_percent", 0))  # type: ignore[assignment]
+            link.jitter = float(test_result.get("jitter_ms", 0))  # type: ignore[assignment]
+            link.last_seen = datetime.utcnow()  # type: ignore[assignment]
 
             # Create event if status changed significantly
-            if old_status != new_status and new_status in [LinkStatusEnum.DOWN, LinkStatusEnum.DEGRADED]: # pyright: ignore[reportGeneralTypeIssues]
+            if old_status != new_status and new_status in [LinkStatusEnum.DOWN, LinkStatusEnum.DEGRADED]:
                 await self._create_link_event(link, old_status, new_status, test_result)
 
             return {
-                "link_id": link.id,
-                "source_device_id": link.source_device_id,
-                "target_device_id": link.target_device_id,
+                "link_id": str(link.id),
+                "source_device_id": str(link.source_device_id),
+                "target_device_id": str(link.target_device_id),
                 "status": new_status.value,
                 "health_score": test_result.get("health_score", 0),
                 "latency_ms": test_result.get("latency_avg_ms"),
@@ -249,7 +261,7 @@ class LinkMonitor:
         except Exception as e:
             logger.error(f"Failed to check link {link.id}: {e}")
             return {
-                "link_id": link.id,
+                "link_id": str(link.id),
                 "status": "ERROR",
                 "error": str(e),
             }
@@ -284,7 +296,7 @@ class LinkMonitor:
             id=f"evt-link-{link.id}-{datetime.utcnow().timestamp()}",
             event_type=event_type,
             severity=severity,
-            link_id=link.id,
+            link_id=str(link.id),
             message=f"Link status changed from {old_status.value} to {new_status.value}",
             details={
                 "old_status": old_status.value,
@@ -294,6 +306,10 @@ class LinkMonitor:
                 "packet_loss_percent": test_result.get("packet_loss_percent"),
             },
             source="link_monitor",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            first_occurred_at=datetime.utcnow(),
+            last_occurred_at=datetime.utcnow(),
         )
         self.db.add(event)
 
@@ -306,7 +322,7 @@ class LinkMonitor:
         """
         # Get all links
         result = await self.db.execute(select(Link))
-        links = result.scalars().all()
+        links = list(result.scalars().all())
 
         if not links:
             logger.warning("No links found to monitor")
@@ -380,10 +396,10 @@ class PortMonitor:
         # This would typically use SNMP to query port status
         # For now, return current status
         return {
-            "port_id": port.id,
-            "device_id": port.device_id,
-            "port_name": port.port_name,
-            "status": port.status.value,
+            "port_id": str(port.id),
+            "device_id": str(port.device_id),
+            "port_name": str(port.port_name),
+            "status": str(port.status.value) if port.status else "UNKNOWN",
             "checked_at": datetime.utcnow(),
         }
 
@@ -427,7 +443,7 @@ class MonitoringService:
                 await db.commit()
 
             except Exception as e:
-                logger.error(f"Link monitoring failed: {e}", exc_info=True)
+                logger.error(f"Monitoring cycle failed: {e}", exc_info=True)
                 await db.rollback()
                 link_results = {"error": str(e)}
                 device_results = {"error": str(e)}
@@ -483,19 +499,19 @@ class MonitoringService:
             try:
                 # Get counts from database
                 device_count = await db.execute(
-                    select(Device).where(Device.is_monitored == True)
+                    select(Device).where(Device.is_monitored == True)  # type: ignore[arg-type]
                 )
-                monitored_devices = len(device_count.scalars().all())
+                monitored_devices = len(list(device_count.scalars().all()))
 
                 link_count = await db.execute(select(Link))
-                total_links = len(link_count.scalars().all())
+                total_links = len(list(link_count.scalars().all()))
 
                 # Get recent events count
                 recent_time = datetime.utcnow() - timedelta(hours=1)
                 event_count = await db.execute(
                     select(Event).where(Event.created_at >= recent_time)
                 )
-                recent_events = len(event_count.scalars().all())
+                recent_events = len(list(event_count.scalars().all()))
 
             except Exception as e:
                 logger.error(f"Failed to get monitoring status: {e}")
